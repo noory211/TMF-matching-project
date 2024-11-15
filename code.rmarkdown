@@ -1,0 +1,750 @@
+---
+title: "TMF RDD Project"
+format: html
+editor: visual
+---
+
+```{r}
+# load library and data
+library (tidyverse)
+library (readxl)
+library(writexl)
+library (MatchIt)
+library (cobalt)
+library (optmatch)
+library (haven)
+library (ggplot2)
+library (tidyverse)
+library (broom)
+library(dplyr)
+library (modelsummary)
+library (readxl)
+library(lme4)
+library (patchwork)
+
+data <- read_excel("dprd province.xlsx")
+data2 <- data %>%
+  group_by(party, constituency) %>%
+  slice(1) %>%  
+  ungroup()
+```
+
+```{r}
+# change party names
+data <- data %>%
+  mutate(party = case_when(
+    grepl("Partai Gelombang Rakyat Indonesia", party) ~ "Gelora",
+    grepl("Partai Demokrasi Indonesia Perjuangan", party) ~ "PDIP",
+    grepl("Partai Golongan Karya", party) ~ "Golkar",
+    grepl("Partai NasDem", party) ~ "Nasdem",
+    grepl("Partai Demokrat", party) ~ "Demokrat",
+    grepl("Partai Kebangkitan Bangsa", party) ~ "PKB",
+    grepl("Partai Buruh", party) ~ "Buruh",
+    grepl("Partai Gerakan Indonesia Raya", party) ~ "Gerindra",
+    grepl("Partai Kebangkitan Nusantara", party) ~ "PKN",
+    grepl("Partai Hati Nurani Rakyat", party) ~ "Hanura",
+    grepl("Partai Keadilan Sejahtera", party) ~ "PKS",
+    grepl("Partai Persatuan Pembangunan", party) ~ "PPP",
+    grepl("Partai Amanat Nasional", party) ~ "PAN",
+    grepl("Partai Ummat", party) ~ "Ummat",
+    grepl("Partai Bulan Bintang", party) ~ "PBB",
+    grepl("Partai Solidaritas Indonesia", party) ~ "PSI",
+    grepl("PARTAI PERINDO", party) ~ "Perindo",
+    grepl("Partai Garda Republik Indonesia", party) ~ "Garuda"
+  ))
+
+# remove the word 'Dapil' in column 'constituency'
+data <- data %>%
+  mutate(constituency = gsub("Dapil", "", constituency))
+
+# rename column 'sex' if 'LAKI-LAKI' to 'male' and 'PEREMPUAN' to 'female'
+data <- data %>%
+  mutate(sex = case_when(
+    sex == "LAKI - LAKI" ~ "male",
+    sex == "PEREMPUAN" ~ "female",
+    TRUE ~ as.character(sex)
+  ))
+
+# recode 'sex' if 'male' = 0 and 'female' = 1
+data <- data %>%
+  mutate(sex = ifelse(sex == "male", 0, ifelse(sex == "female", 1, sex)))
+
+# set columns 'name', 'constituency', and 'origins' into lowercases
+data <- data %>%
+  mutate(name = tolower(name),
+         origins = tolower(origins),
+         constituency = tolower(constituency))
+```
+
+```{r}
+# input the name of 'province' based on 'constituency'
+data <- data %>%
+  mutate(province = case_when(
+    grepl("^ aceh (10|[1-9])$", constituency, ignore.case = TRUE) ~ "aceh",
+    grepl("^ sumatera utara (1[0-2]|[1-9])$", constituency, ignore.case = TRUE) ~ "sumut",
+    grepl("^ sumatera barat ([1-8])$", constituency, ignore.case = TRUE) ~ "sumbar",
+    grepl("^ riau ([1-8])$", constituency, ignore.case = TRUE) ~ "riau",
+    grepl("^ jambi ([1-6])$", constituency, ignore.case = TRUE) ~ "jambi",
+    grepl("^ sumatera selatan (10|[1-9])$", constituency, ignore.case = TRUE) ~ "sumsel",
+    grepl("^ bengkulu ([1-7])$", constituency, ignore.case = TRUE) ~ "bengkulu",
+    grepl("^ lampung ([1-8])$", constituency, ignore.case = TRUE) ~ "lampung",
+    grepl("^ kepulauan bangka belitung ([1-6])$", constituency, ignore.case = TRUE) ~ "babel",
+    grepl("^ kepulauan riau ([1-7])$", constituency, ignore.case = TRUE) ~ "kepri",
+    grepl("^ dki jakarta (10|[1-9])$", constituency, ignore.case = TRUE) ~ "jakarta",
+    grepl("^ jawa barat (1[0-5]|[1-9])$", constituency, ignore.case = TRUE) ~ "jabar",
+    grepl("^ jawa tengah (1[0-3]|[1-9])$", constituency, ignore.case = TRUE) ~ "jateng",
+    grepl("^ daerah istimewa yogyakarta ([1-7])$", constituency, ignore.case = TRUE) ~ "yogyakarta",
+    grepl("^ jawa timur (1[0-4]|[1-9])$", constituency, ignore.case = TRUE) ~ "jatim",
+    grepl("^ banten (1[0-2]|[1-9])$", constituency, ignore.case = TRUE) ~ "banten",
+    grepl("^ bali ([1-9])$", constituency, ignore.case = TRUE) ~ "bali",
+    grepl("^ nusa tenggara barat ([1-8])$", constituency, ignore.case = TRUE) ~ "ntb",
+    grepl("^ nusa tenggara timur ([1-8])$", constituency, ignore.case = TRUE) ~ "ntt",
+    grepl("^ kalimantan barat ([1-8])$", constituency, ignore.case = TRUE) ~ "kalbar",
+    grepl("^ kalimantan tengah ([1-5])$", constituency, ignore.case = TRUE) ~ "kalteng",
+    grepl("^ kalimantan selatan ([1-7])$", constituency, ignore.case = TRUE) ~ "kalsel",
+    grepl("^ kalimantan timur ([1-6])$", constituency, ignore.case = TRUE) ~ "kaltim",
+    grepl("^ kalimantan utara ([1-4])$", constituency, ignore.case = TRUE) ~ "kalut",
+    grepl("^ sulawesi utara ([1-6])$", constituency, ignore.case = TRUE) ~ "sulut",
+    grepl("^ sulawesi tengah ([1-7])$", constituency, ignore.case = TRUE) ~ "sulteng",
+    grepl("^ sulawesi selatan (1[0-1]|[1-9])$", constituency, ignore.case = TRUE) ~ "sulsel",
+    grepl("^ sulawesi tenggara ([1-6])$", constituency, ignore.case = TRUE) ~ "sultengg",
+    grepl("^ gorontalo ([1-6])$", constituency, ignore.case = TRUE) ~ "gorontalo",
+    grepl("^ sulawesi barat ([1-7])$", constituency, ignore.case = TRUE) ~ "sulbar",
+    grepl("^ maluku ([1-7])$", constituency, ignore.case = TRUE) ~ "maluku",
+    grepl("^ maluku utara ([1-5])$", constituency, ignore.case = TRUE) ~ "maluku utara",
+    grepl("^ p a p u a ([1-7])$", constituency, ignore.case = TRUE) ~ "papua",
+    grepl("^ papua selatan ([1-5])$", constituency, ignore.case = TRUE) ~ "papua sel",
+    grepl("^ papua tengah ([1-8])$", constituency, ignore.case = TRUE) ~ "papua teng",
+    grepl("^ papua pegunungan ([1-7])$", constituency, ignore.case = TRUE) ~ "papua peg",
+    grepl("^ papua barat ([1-5])$", constituency, ignore.case = TRUE) ~ "papua bar",
+    grepl("^ papua barat daya ([1-6])$", constituency, ignore.case = TRUE) ~ "papua bd",
+
+
+    TRUE ~ NA_character_
+  ))
+```
+
+```{r}
+#count of number of candidates (rows) a party runs in district
+data=data%>%
+  mutate(countinghelp=1)
+ 
+data=data%>% 
+  group_by(party, constituency)%>% 
+  mutate(numbercandidates = sum(countinghelp))
+
+#Check if there is a common difference between dm and numbercandidates
+data=data%>% 
+  group_by(party, constituency)%>% 
+  mutate(dmnumcandiff = numbercandidates -dm)
+```
+
+```{r}
+#This is the original way to calculate the requisite number of candidates based on the 30% rule - rounding all up
+roundup30 <- function(x) {
+  ceiling(x)
+  }
+
+#this is the modified round down rule if the fraction of 30% is less than .5
+rounddown30 <- function(x) {
+  ifelse(x - floor(x) < 0.5, floor(x), ceiling(x))
+  }
+
+#First calculate 30% of actual candidates a party ran in the district
+data=data%>% 
+  mutate(numcand30=numbercandidates*.3)
+
+#Next create an expectation for the number of women using original rule of rounding up  
+data=data%>%
+   mutate(numcandup=roundup30(numcand30))
+
+#Next create an expectation for the number of women using the new round down rule
+data=data%>%
+   mutate(numcandown=rounddown30(numcand30))
+
+```
+
+```{r}
+# create column 'numwomen' indicating the number of women for each party in each constituency
+data <- data %>%
+  group_by(party, constituency) %>%
+  mutate(numwomen = sum (sex == 1, na.rm = TRUE)) %>%
+  ungroup()
+```
+
+```{r}
+# set treatment assignment if it's >= numbcand30
+data$treatment <- ifelse(data$numwomen >= data$numcand30, 1, 0)
+```
+
+```{r}
+# filter the data for unique 'party' and unique 'constituency'
+data2 <- data %>%
+  group_by(party, constituency) %>%
+  slice(1) %>%  
+  ungroup()
+# this is going to be our main data 
+```
+
+```{r}
+# drop missing values for ATE
+data2 <- data %>%
+  filter(!is.na(elected) & !is.na(list.number) & !is.na(sex) & !is.na(dm) & 
+         is.finite(elected) & is.finite(list.number) & is.finite(dm))
+
+```
+
+
+# 1. ATE with nearest matching
+
+
+```{r}
+# estimating propensity score
+match_nearest_dprd <-  matchit (treatment ~ dm + sex + party + constituency + list.number, method = "nearest",  distance = "mahalanobis", replace = TRUE, data = data2)
+
+
+# create object from the nearest matching
+matched_data_dprd <- match.data(match_nearest_dprd, weights = "weights")
+```
+
+
+## without covariates
+
+
+```{r}
+# Estimation the ATE on matched data without covariates with standard model
+dprd_model1 <- glm(elected ~ treatment, data = matched_data_dprd, family ="binomial")
+
+dprd_model1_mlm <- glmer(elected ~ treatment + (1 | party) + (1 | province), family = "binomial", data = matched_data_dprd)
+
+modelsummary(dprd_model1_mlm)
+
+
+# estimating the ATE with covariates with weights in standard model
+dprd_model2 <- glm(elected ~ treatment, data = matched_data_dprd, weights = weights)
+
+tidy(dprd_model1)
+tidy(dprd_model2)
+```
+
+
+## with covariates
+
+
+```{r}
+# estimation of the ATE on matched data with covariates (doubly robust est)
+dprd_model3 <- glm(elected ~ treatment + list.number + sex + dm, family = "binomial", data = matched_data_dprd)
+
+# estimation of the ATE on matched data with covariates with multilevel model
+dprd_model3_mlm <- glmer(elected ~ treatment + list.number + sex + dm + (1 | party) + (1 | province), family = "binomial", data = matched_data_dprd)
+
+# estimation of the ATE on matched data female only with covariates with multilevel model
+dprd_model3_mlm2 <- glmer(elected ~ treatment + list.number + dm + (1 | party) + (1 | province), family = "binomial", data = matched_data_dprd_fem)
+
+mlm_models <- list ("All candidates" = dprd_model3_mlm, "Female only" = dprd_model3_mlm2)
+
+# print both models
+tidy(dprd_model3)
+modelsummary(mlm_models, coef_rename = c("list.number" = "list position", 
+                                         "sex1" = "gender", "dm" = "district magnitude"), 
+             gof_omit = "ICC|RMSE",
+             stars = TRUE,
+             title = "Table 2. Multilevel model results")
+
+# create predicted value for both standard logit and multilevel model
+matched_data_dprd$predicted = predict(dprd_model3)
+matched_data_dprd$predicted_re = predict(dprd_model3_mlm)
+
+# plot the predicted values
+figure2<-ggplot(matched_data_dprd) +
+  geom_point(aes(x = factor(treatment), y = predicted, color = "grey"), alpha = 0.2) +
+  geom_line(aes(x = factor(treatment), y = predicted, color = "Standard logit", linetype = "Standard logit", group = 1)) +
+  geom_point(aes(x = factor(treatment), y = predicted_re, color = "grey"), alpha = 0.2) +
+  geom_line(aes(x = factor(treatment), y = predicted_re, color = "Multilevel model", linetype = "Multilevel model", group = 1)) +
+  scale_color_manual(name = "Model", values = c("Standard logit" = "blue", "Multilevel model" = "red")) +
+  scale_linetype_manual(name = "Model", values = c("Standard logit" = "dashed", "Multilevel model" = "dashed")) +
+  scale_x_discrete(name = "0 for untreated and 1 for treated groups", breaks = c("0", "1"), labels = c("0", "1"), expand = expansion(mult = c(0.1, 0.1))) +
+  labs(title = "Figure 2. Probability of being elected with standard logit (blue) and multilevel model (red)",
+       y = "Elected probability") +
+  theme_bw()
+
+ggsave(filename = "figure 2.png", plot = figure2, width = 8, height = 6, dpi = 300)
+
+```
+
+
+# 2. ATE using IPW
+
+
+```{r}
+# estimating the propensity scores using logistic regression 
+dprd_model3_ps <- glm(treatment ~ list.number + sex + dm, family = "binomial", data = data2)
+
+# add the propensity scores to the data frame
+data2$propensity <- predict(dprd_model3_ps, type = "response") 
+
+# create IPW in a new object/dataframe
+data.ipw <- data2 %>%
+  mutate(ipw = ifelse(treatment == 1, 1 / propensity, 1 / (1 - propensity)))
+```
+
+
+## without covariates, ipw only
+
+
+```{r}
+# estimate the ATE by inverse probabilty weighted regression 
+dprd_model4 <- glm(elected ~ treatment, family= "binomial", data = data.ipw, weights = ipw)
+
+tidy(dprd_model4)
+```
+
+
+## with covariates
+
+
+```{r}
+# Now adjust for doubly robust adjustment with covariates
+dprd_model5 <- glm(elected ~ treatment + list.number + sex + dm, family = "binomial", data = data.ipw, weights = ipw)
+
+tidy(dprd_model5)
+```
+
+
+# 3. All models combined
+
+
+```{r}
+library(flextable)
+# combining  ATE models in one table
+all.models.dprd <- list("Exl. covariates" = dprd_model1, "Inc. covariates" = dprd_model3)
+  
+all.models <- modelsummary(all.models.dprd, 
+                           coef_rename = c("treatment" = "treatment", "list.number" = "list position", "sex1" = "gender", "dm" = "district magnitude"), gof_omit = "AIC|BIC|R2|F", stars = TRUE, title = "Table 1. The effect of treatment on election")
+
+all.models
+```
+
+
+# 4. Naive results
+
+
+```{r}
+# naive model without adjusting covariate/matching and inverse probabilty
+naive_dprd1 <- glm (elected ~ treatment, data = data, family = "binomial")
+
+naive_dprd2 <- glm (elected ~ treatment + list.number + sex + dm, data = data, family = "binomial")
+
+all.models.dprd.naive <- list("Standard logit" = naive_dprd1, "Standard logit + covariates" = naive_dprd2, "Multilevel model" = dprd_model3_mlm)
+  
+modelsummary(all.models.dprd.naive, gof_omit = "AIC|BIC|F", stars = TRUE, title = "Table 3. Logistic regression (bias results) and multilevel model compared")
+```
+
+```{r}
+# generating balance plot
+summary(match_nearest_dprd)
+```
+
+
+# 5. Balance plots
+
+
+```{r}
+# Using bal.plot() to visualize balance for 'usia'
+bal.plot(match_nearest_dprd, which = "both", 
+         main = "Balance Plot for Age (Usia) Before and After Matching")
+
+# Generating a Love plot to visualize balance for all covariates
+love.plot(match_nearest_dprd, which = "both", threshold = 0.05, abs = TRUE,
+          main = "Love Plot Showing Standardized Mean Differences")
+
+
+# Not to self, not yet accounting the balance for IPW to see which one is better and meet the assumptions
+
+```
+
+
+# 6. All balance plots
+
+
+```{r}
+# Balance plot foro 'sex'
+bal.plot(match_nearest_dprd, var.name = "sex", which = "both", main = "Balance for sex")
+
+# Balance plot for 'list.number'
+bal.plot(match_nearest_dprd, var.name = "list.number", which = "both", main = "Balance for list.number")
+
+# Balance plot for 'dm'
+bal.plot(match_nearest_dprd, var.name = "dm", which = "both", main = "Balance for district magnitude")
+
+# Balance plot for IPW
+
+```
+
+
+run the same model with dataset is stricted to women
+
+
+```{r}
+data_fem <- read_excel("dprd province.xlsx")
+```
+
+```{r}
+# change party names
+data_fem <- data_fem %>%
+  mutate(party = case_when(
+    grepl("Partai Gelombang Rakyat Indonesia", party) ~ "Gelora",
+    grepl("Partai Demokrasi Indonesia Perjuangan", party) ~ "PDIP",
+    grepl("Partai Golongan Karya", party) ~ "Golkar",
+    grepl("Partai NasDem", party) ~ "Nasdem",
+    grepl("Partai Demokrat", party) ~ "Demokrat",
+    grepl("Partai Kebangkitan Bangsa", party) ~ "PKB",
+    grepl("Partai Buruh", party) ~ "Buruh",
+    grepl("Partai Gerakan Indonesia Raya", party) ~ "Gerindra",
+    grepl("Partai Kebangkitan Nusantara", party) ~ "PKN",
+    grepl("Partai Hati Nurani Rakyat", party) ~ "Hanura",
+    grepl("Partai Keadilan Sejahtera", party) ~ "PKS",
+    grepl("Partai Persatuan Pembangunan", party) ~ "PPP",
+    grepl("Partai Amanat Nasional", party) ~ "PAN",
+    grepl("Partai Ummat", party) ~ "Ummat",
+    grepl("Partai Bulan Bintang", party) ~ "PBB",
+    grepl("Partai Solidaritas Indonesia", party) ~ "PSI",
+    grepl("PARTAI PERINDO", party) ~ "Perindo",
+    grepl("Partai Garda Republik Indonesia", party) ~ "Garuda"
+  ))
+
+# remove the word 'Dapil' in column 'constituency'
+data_fem <- data_fem %>%
+  mutate(constituency = gsub("Dapil", "", constituency))
+
+# rename column 'sex' if 'LAKI-LAKI' to 'male' and 'PEREMPUAN' to 'female'
+data_fem <- data_fem %>%
+  mutate(sex = case_when(
+    sex == "LAKI - LAKI" ~ "male",
+    sex == "PEREMPUAN" ~ "female",
+    TRUE ~ as.character(sex)
+  ))
+
+# recode 'sex' if 'male' = 0 and 'female' = 1
+data_fem <- data_fem %>%
+  mutate(sex = ifelse(sex == "male", 0, ifelse(sex == "female", 1, sex)))
+
+# set columns 'name', 'constituency', and 'origins' into lowercases
+data_fem <- data_fem %>%
+  mutate(name = tolower(name),
+         origins = tolower(origins),
+         constituency = tolower(constituency))
+
+
+#count of number of candidates (rows) a party runs in district
+data_fem=data_fem%>%
+  mutate(countinghelp=1)
+ 
+data_fem=data_fem%>% 
+  group_by(party, constituency)%>% 
+  mutate(numbercandidates = sum(countinghelp))
+
+#Check if there is a common difference between dm and numbercandidates
+data_fem=data_fem%>% 
+  group_by(party, constituency)%>% 
+  mutate(dmnumcandiff = numbercandidates -dm)
+
+#This is the original way to calculate the requisite number of candidates based on the 30% rule - rounding all up
+roundup30 <- function(x) {
+  ceiling(x)
+  }
+
+#this is the modified round down rule if the fraction of 30% is less than .5
+rounddown30 <- function(x) {
+  ifelse(x - floor(x) < 0.5, floor(x), ceiling(x))
+  }
+
+#First calculate 30% of actual candidates a party ran in the district
+data_fem=data_fem%>% 
+  mutate(numcand30=numbercandidates*.3)
+
+#Next create an expectation for the number of women using original rule of rounding up  
+data_fem=data_fem%>%
+   mutate(numcandup=roundup30(numcand30))
+
+#Next create an expectation for the number of women using the new round down rule
+data_fem=data_fem%>%
+   mutate(numcandown=rounddown30(numcand30))
+
+
+# create column 'numwomen' indicating the number of women for each party in each constituency
+data_fem <- data_fem %>%
+  group_by(party, constituency) %>%
+  mutate(numwomen = sum (sex == 1, na.rm = TRUE)) %>%
+  ungroup()
+
+# set treatment assignment if it's >= numbcand30
+data_fem$treatment <- ifelse(data_fem$numwomen >= data_fem$numcand30, 1, 0)
+
+# filter to female only
+data_fem <- data_fem %>%
+  filter(sex == 1) 
+
+# drop missing values for ATE
+data_fem <- data_fem %>%
+  filter(!is.na(elected) & !is.na(list.number) & !is.na(sex) & !is.na(dm) & 
+         is.finite(elected) & is.finite(list.number) & is.finite(dm))
+
+# input the name of 'province' based on 'constituency'
+data_fem <- data_fem %>%
+  mutate(province = case_when(
+    grepl("^ aceh (10|[1-9])$", constituency, ignore.case = TRUE) ~ "aceh",
+    grepl("^ sumatera utara (1[0-2]|[1-9])$", constituency, ignore.case = TRUE) ~ "sumut",
+    grepl("^ sumatera barat ([1-8])$", constituency, ignore.case = TRUE) ~ "sumbar",
+    grepl("^ riau ([1-8])$", constituency, ignore.case = TRUE) ~ "riau",
+    grepl("^ jambi ([1-6])$", constituency, ignore.case = TRUE) ~ "jambi",
+    grepl("^ sumatera selatan (10|[1-9])$", constituency, ignore.case = TRUE) ~ "sumsel",
+    grepl("^ bengkulu ([1-7])$", constituency, ignore.case = TRUE) ~ "bengkulu",
+    grepl("^ lampung ([1-8])$", constituency, ignore.case = TRUE) ~ "lampung",
+    grepl("^ kepulauan bangka belitung ([1-6])$", constituency, ignore.case = TRUE) ~ "babel",
+    grepl("^ kepulauan riau ([1-7])$", constituency, ignore.case = TRUE) ~ "kepri",
+    grepl("^ dki jakarta (10|[1-9])$", constituency, ignore.case = TRUE) ~ "jakarta",
+    grepl("^ jawa barat (1[0-5]|[1-9])$", constituency, ignore.case = TRUE) ~ "jabar",
+    grepl("^ jawa tengah (1[0-3]|[1-9])$", constituency, ignore.case = TRUE) ~ "jateng",
+    grepl("^ daerah istimewa yogyakarta ([1-7])$", constituency, ignore.case = TRUE) ~ "yogyakarta",
+    grepl("^ jawa timur (1[0-4]|[1-9])$", constituency, ignore.case = TRUE) ~ "jatim",
+    grepl("^ banten (1[0-2]|[1-9])$", constituency, ignore.case = TRUE) ~ "banten",
+    grepl("^ bali ([1-9])$", constituency, ignore.case = TRUE) ~ "bali",
+    grepl("^ nusa tenggara barat ([1-8])$", constituency, ignore.case = TRUE) ~ "ntb",
+    grepl("^ nusa tenggara timur ([1-8])$", constituency, ignore.case = TRUE) ~ "ntt",
+    grepl("^ kalimantan barat ([1-8])$", constituency, ignore.case = TRUE) ~ "kalbar",
+    grepl("^ kalimantan tengah ([1-5])$", constituency, ignore.case = TRUE) ~ "kalteng",
+    grepl("^ kalimantan selatan ([1-7])$", constituency, ignore.case = TRUE) ~ "kalsel",
+    grepl("^ kalimantan timur ([1-6])$", constituency, ignore.case = TRUE) ~ "kaltim",
+    grepl("^ kalimantan utara ([1-4])$", constituency, ignore.case = TRUE) ~ "kalut",
+    grepl("^ sulawesi utara ([1-6])$", constituency, ignore.case = TRUE) ~ "sulut",
+    grepl("^ sulawesi tengah ([1-7])$", constituency, ignore.case = TRUE) ~ "sulteng",
+    grepl("^ sulawesi selatan (1[0-1]|[1-9])$", constituency, ignore.case = TRUE) ~ "sulsel",
+    grepl("^ sulawesi tenggara ([1-6])$", constituency, ignore.case = TRUE) ~ "sultengg",
+    grepl("^ gorontalo ([1-6])$", constituency, ignore.case = TRUE) ~ "gorontalo",
+    grepl("^ sulawesi barat ([1-7])$", constituency, ignore.case = TRUE) ~ "sulbar",
+    grepl("^ maluku ([1-7])$", constituency, ignore.case = TRUE) ~ "maluku",
+    grepl("^ maluku utara ([1-5])$", constituency, ignore.case = TRUE) ~ "maluku utara",
+    grepl("^ p a p u a ([1-7])$", constituency, ignore.case = TRUE) ~ "papua",
+    grepl("^ papua selatan ([1-5])$", constituency, ignore.case = TRUE) ~ "papua sel",
+    grepl("^ papua tengah ([1-8])$", constituency, ignore.case = TRUE) ~ "papua teng",
+    grepl("^ papua pegunungan ([1-7])$", constituency, ignore.case = TRUE) ~ "papua peg",
+    grepl("^ papua barat ([1-5])$", constituency, ignore.case = TRUE) ~ "papua bar",
+    grepl("^ papua barat daya ([1-6])$", constituency, ignore.case = TRUE) ~ "papua bd",
+
+
+    TRUE ~ NA_character_
+  ))
+```
+
+
+# A. ATE with nearest neighboor
+
+
+```{r}
+# estimating propensity score
+match_nearest_dprd_fem <-  matchit (treatment ~ list.number + dm, method = "nearest", distance = "mahalanobis", replace = TRUE, data = data_fem)
+
+
+# create object from the full matching
+matched_data_dprd_fem <- match.data(match_nearest_dprd_fem, weights = "weights")
+```
+
+
+## without covariates
+
+
+```{r}
+# Estimation the ATE on matched data without covariates 
+dprd_model1_fem <- glm(elected ~ treatment, data = matched_data_dprd_fem, family ="binomial")
+
+# estimating the ATE with covariates
+dprd_model2_fem <- glm(elected ~ treatment, data = matched_data_dprd_fem, weights = weights)
+
+tidy(dprd_model1_fem)
+tidy(dprd_model2_fem)
+```
+
+
+## with covariates
+
+
+```{r}
+#Estimation of the ATE on matched data with covariates (doubly robust est)
+dprd_model3_fem <- glm(elected ~ treatment + list.number + dm, family = "binomial", data = matched_data_dprd_fem)
+```
+
+
+# B. ATE using IPW
+
+
+```{r}
+# estimating the propensity scores using logistic regression 
+dprd_model3_ps_fem <- glm(treatment ~ list.number + dm, family = "binomial", data = data_fem)
+
+# Add the propensity scores to the data frame
+data_fem$propensity <- predict(dprd_model3_ps_fem, type = "response") 
+
+# create IPW in a new object/dataframe
+data_fem.i <- augment_columns(dprd_model3_ps_fem, data = data_fem,
+                                   type.predict = "response") %>%
+   mutate(ipw = (treatment / propensity) + ((1 - treatment) / (1 - propensity)))
+```
+
+
+## without covariates, ipw only
+
+
+```{r}
+# Estimate the ATE by inverse probabilty weighted regression 
+dprd_model4_fem <- glm(elected ~ treatment, family= "binomial", data = data_fem.i, weights = ipw)
+
+tidy(dprd_model4_fem)
+```
+
+
+## with covariates
+
+
+```{r}
+library(broom)
+# Now adjust for doubly robust adjustment with covariates
+# Re-fit the model
+dprd_model5_fem <- glm(elected ~ treatment + list.number + dm, family = "binomial", data = data_fem.i, weights = ipw)
+
+
+# Tidy the model output with confidence intervals
+tidy_output <- tidy(dprd_model5_fem, conf.int = TRUE)
+print(tidy_output)
+```
+
+
+# C. All models
+
+
+```{r}
+# combining  ATE models in one table
+all.models.dprd_fem <- list("Exl. covariates" = dprd_model1_fem, "Inc. covariates" = dprd_model3_fem, "Exl. covariates" = dprd_model1, "Inc. covariates" = dprd_model3)
+  
+all.models_fem <- modelsummary(all.models.dprd_fem, 
+                           coef_rename = c("treatment" = "treatment", "list.number" = "list position", "dm" = "district magnitude", "sex1" = "gender"), gof_omit = "RMSE|F", stars = TRUE, title = "Table 1. The effect of the treatment on candidate electability")
+
+all.models_fem
+```
+
+
+# D. Plots
+
+
+```{r}
+library(marginaleffects)
+plot_2 <- plot_predictions(dprd_model3, condition = c("list.number", "sex")) + theme_minimal() + labs (title = "Fig.3. Marginal effects of list position, dm, and sex (0 men, 1 women)") +  scale_x_continuous(name = "list.number", breaks = seq(min(matched_data_dprd$list.number), max(matched_data_dprd$list.number), by = 3)) 
+
+
+plot_4 <- plot_predictions(dprd_model3, condition = c( "dm", "sex")) +
+  theme_minimal() + labs (x = "district magnitude")
+
+combined_plot1 <- plot_2 + plot_4
+combined_plot1
+
+
+plot_5 <- plot_predictions(dprd_model3, condition = c( "treatment", "sex")) +
+  theme_minimal() + labs (x = "treatment effect based on gender") + labs (title = "Fig.4. Marginal effect of the treatment based on gender")
+plot_5
+
+```
+
+
+# E. Naive results
+
+
+```{r}
+library (modelsummary)
+
+# naive model without adjusting covariate/matching and inverse probabilty
+naive_dprd1_fem <- glm (elected ~ treatment, data = data_fem, family = "binomial")
+
+naive_dprd2_fem <- glm (elected ~ treatment + list.number + dm, data = data_fem, family = "binomial")
+
+all.models.dprd.naive_fem <- list("Without covariates" = naive_dprd1_fem, "With covariates" = naive_dprd2_fem)
+  
+modelsummary(all.models.dprd.naive_fem, gof_omit = "AIC|BIC|F", stars = TRUE, title = "Logistic regression (bias results)")
+```
+
+
+# I. Desriptive statistics
+
+
+```{r}
+# total  elected based on province
+elected_prov <- data %>%
+  filter(elected == 1) %>%  
+  group_by(province) %>%    
+  summarize(elected = n()) 
+
+# total women elected based on provinces
+elected_wom_prov <- data %>%
+  filter(elected == 1, sex == 1) %>%  
+  group_by(province) %>%             
+  summarize(women_elect = n()) 
+
+# merging the data and calculate the percentage of elected women in each province
+elected_prov <- elected_prov %>%
+  left_join(elected_wom_prov, by = "province") %>%
+  replace_na(list(women_elect = 0)) %>%
+  mutate(`women_%` = (women_elect / elected) * 100)
+
+# show the percentage one one in every three bar
+elected_prov <- elected_prov %>%
+  mutate(label_flag = (row_number() - 1) %% 3 == 0 | province == "average")
+
+# Calculate the average percentage of women elected
+average_women_perc <- mean(elected_prov$`women_%`, na.rm = TRUE)
+
+# Add the average row to the dataframe
+elected_prov <- elected_prov %>%
+  add_row(province = "average", elected = NA, women_elect = NA, `women_%` = average_women_perc, label_flag = TRUE)
+```
+
+```{r}
+# create ggplot for elected women in province
+figure2 <- ggplot(elected_prov, aes(x = reorder(province, `women_%`), y = `women_%`, fill = province)) +
+  geom_bar(stat = "identity") +
+  geom_text(data = elected_prov %>% filter(label_flag), 
+            aes(label = round(`women_%`, 1)), 
+            vjust = -0.5, size = 2.5) +
+  labs(title = "Figure 2. Percentage of women elected by province", x = "Province", y = "Women elected (%)") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none") +
+    scale_fill_manual(values = c("average" = "red"))
+
+ggsave(filename = "figure2.png", plot = figure2, width = 10, height = 6, dpi = 300)
+
+```
+
+```{r}
+# uncompliance party
+party.compliance <- party.candidates %>% filter(treatment == 0)
+
+# Plot the distribution of the 'party' column for the filtered data
+figure1<-ggplot(party.compliance, aes(x = reorder(party, party, function(x) -length(x)), fill = party)) +
+  geom_bar() +
+  geom_text(stat='count', aes(label=..count..), vjust=-0.1) +
+  labs(title = "Figure 1. Party non-compliance ranking for gender quota",
+       x = "Party",
+       y = "Count") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
+
+ggsave(filename = "figure.1.png", plot = figure1, width = 10, height = 6, dpi = 300)
+
+```
+
+```{r}
+library (ltm)
+# correlation between 'elected' and 'dm'
+correlation <- cor(data2$sex, data2$elected)
+
+print(correlation)
+```
+

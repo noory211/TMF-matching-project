@@ -1,0 +1,71 @@
+---
+title: "The limits of gender quota:" 
+subtitle: "A quasi-experimental approach"
+author: "Noory Okthariza"
+format: beamer
+output: 
+  beamer_presentation:
+    keep_tex: true  # Keep the .tex file for inspection if needed
+editor: visual
+theme: "Boadilla"
+colortheme: "lily"
+header-includes:
+  - \usepackage{etoolbox}
+  - \AtBeginEnvironment{itemize}{\addtolength{\itemsep}{2em}}
+  - \setbeamerfont{title}{size=\huge}
+  - \setbeamerfont{subtitle}{size=\huge}
+---
+
+## Argumen utama
+
+-   *Null findings: Compliance* terhadap aturan kuota gender tidak berpengaruh signifikan meningkatkan representasi perempuan di tingkat provinsi
+
+-   Ini ditemukan dalam beberapa uji empiris (PSM, multilevel, dan logit model) dengan model berbeda-beda (*all candidates, women only, with & without covariate controls)*
+
+-   Mengonfirmasi temuan bahwa dalam *list-PR election* seperti Indonesia, hal terpenting adalah nomor urut, atau diposisi mana kandidat perempuan ditempatkan
+
+-   Sejalan dengan temuan beberapa studi, pengaruh kuota gender ada dalam tahap *plateau*, dimana pengaruh lebih lanjut dari kuota gender dalam meningkatkan representasi politik perempuan tampak sulit dicapai
+
+## Data
+
+-   *Scraping* 32,877 *pre-cleaned* data kandidat dprd provinsi di pemilu 2024
+
+-   *Party-district compliance* terhadap aturan 30 persen kuota kandidat perempuan digunakan sebagai cutoff 'treated' dan 'untreated' groups dalam PSM dan multilevel analysis
+
+    -   *Assignment* ini dimungkinkan karena ada PKPU 10/2023 tentang 'pembulatan ke bawah'
+
+    -   Karena itu desain penelitian hanya relevan untuk pemilu 2024. Pada pemilu sebelumnya KPU mewajibkan *compliance* 30 persen kepada seluruh partai
+
+## Temuan kunci
+
+![](figure.1.png)
+
+## Temuan kunci
+
+![](figure2.png)
+
+## Temuan kunci
+
+![](Screenshot%202024-06-14%20at%206.00.22%20PM.png){fig-align="center"}
+
+## Temuan kunci
+
+![](Screenshot%202024-06-14%20at%206.00.42%20PM.png){fig-align="center"}
+
+## Temuan kunci
+
+![](figure%202.png){fig-align="center"}
+
+## Next steps
+
+-   Framing paper?
+
+    -   Akan diletakkan dalam kerangka optimisme terkait *gender quota policy must be tempered* di tingkat lokal
+
+    -   Dan bagaimana *certain features of the electoral system may offset the potential benefits of quota policies, indicating that quota policies do not operate in a vacuum*
+
+-   Setelah ditemukannya *null findings, so what*? Apa maknanya? Apa penjelasan kausalnya?
+
+    -   Mengapa *compliance* terhadap 30 persen kuota tidak berpengaruh di daerah?
+
+    -   Apakah *socio-cultura*l dan *political barriers* lebih *prominent* di daerah daripada di level nasional?
