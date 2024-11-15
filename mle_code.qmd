@@ -1,0 +1,29 @@
+---
+title: "mle_code"
+format: html
+editor: visual
+---
+
+```{r}
+#load libraries
+library(ggplot2)
+library(dplyr)
+library(readxl)
+
+# set wd
+setwd("~/Desktop/TMF-matching-project") 
+data2 <- read_excel("data2.xlsx")
+```
+
+```{r}
+#create a bar plot
+ggplot(data2, aes(x = as.factor(list.number), fill = sex)) +
+  geom_bar(position = "dodge") +
+  labs(
+    title = "Distribution of List Position by Gender",
+    x = "List Position",
+    y = "Count",
+    fill = "Gender"
+  ) +
+  theme_minimal()
+```
