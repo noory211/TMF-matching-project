@@ -117,5 +117,5 @@ ft.results <- flextable(crosstab_with_total) %>%
   set_caption(caption = "Table 1. Elected women (in %) by district size")
 
 # save the table as a MS. Word document
-save_as_docx(ft.results, path = "elected_women_by_district_table.docx") 
+save_as_docx(ft.results, path = "elected_women_by_district_table.docx")  
 ```
