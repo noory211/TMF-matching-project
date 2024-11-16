@@ -8,7 +8,9 @@ editor: visual
 #load libraries
 library(ggplot2)
 library(dplyr)
+library(knitr)
 library(readxl)
+library(flextable)
 
 # set wd
 setwd("~/Desktop/TMF-matching-project") 
@@ -16,14 +18,104 @@ data2 <- read_excel("data2.xlsx")
 ```
 
 ```{r}
-#create a bar plot
-ggplot(data2, aes(x = as.factor(list.number), fill = sex)) +
+# create a bar plot for raw counts
+fig1 <- ggplot(data2[data2$elected == 1, ], aes(x = as.factor(list.number), fill = as.factor(sex))) +
   geom_bar(position = "dodge") +
+  scale_fill_discrete(
+    labels = c("0" = "Men", "1" = "Women"),
+    name = "Gender"
+  ) +
   labs(
-    title = "Distribution of List Position by Gender",
-    x = "List Position",
-    y = "Count",
+    title = "Fig 1. Candidate election based on ballot order",
+    x = "Ballot Position",
+    y = "Count"
+  ) +
+  theme_bw()
+
+
+ggsave("fig1.png", plot = fig1, width = 6, height = 4, dpi = 300)
+```
+
+```{r}
+# Calculate percentages within gender groups
+data2_percent <- data2[data2$elected == 1, ] %>%
+  group_by(sex, list.number) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(sex) %>%
+  mutate(percentage = count / sum(count) * 100)
+
+# Create the barplot
+ggplot(data2_percent, aes(x = as.factor(list.number), y = percentage, fill = as.factor(sex))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_discrete(
+    labels = c("0" = "Men", "1" = "Women"),
+    name = "Gender"
+  ) +
+  labs(
+    title = "Fig 1. Candidate Election Based on Ballot Order",
+    x = "Ballot Position",
+    y = "Percentage",
     fill = "Gender"
   ) +
-  theme_minimal()
+  theme_bw()
+```
+
+```{r}
+# Election bar plots sorted by gender and ballot order
+fig2 <- data2 %>%
+  filter(elected == 1) %>% 
+  group_by(list.number, sex) %>% 
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(sex) %>% 
+  mutate(percentage = count / sum(count) * 100) %>%
+  ggplot(aes(x = as.factor(list.number), y = percentage, fill = as.factor(sex))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~sex, labeller = as_labeller(c(`0` = "Men", `1` = "Women"))) +
+  labs(
+    title = "Fig 2. Elected candidate (in %) by list position and gender",
+    x = "Ballot Order",
+    y = "Percent",
+    fill = "Gender"
+  ) +
+  theme_bw() + theme (legend.position = "none")
+
+ggsave("fig2.png", plot = fig2, width = 6, height = 4, dpi = 300)
+```
+
+```{r}
+# a crosstab for elected women sorted by district magnitude
+crosstab <- data2 %>%
+  filter(sex == 1 & elected == 1) %>%
+  group_by(dm) %>%
+  summarise(
+    elected_women = n(), 
+    percentage = round((elected_women / sum(data2$sex == 1 & data2$elected == 1, na.rm = TRUE)) * 100, 1)
+  ) %>%
+  arrange(dm)
+
+# add a total row
+total_row <- crosstab %>%
+  summarise(
+    dm = "Total", 
+    elected_women = sum(elected_women),
+    percentage = round(sum(elected_women) / sum(data2$sex == 1 & data2$elected == 1, na.rm = TRUE) * 100, 1)
+  ) %>%
+  mutate(dm = as.character(dm)) 
+
+# convert `dm` in `crosstab` to character
+crosstab <- crosstab %>% mutate(dm = as.character(dm))
+
+# combine the table with the total row
+crosstab_with_total <- bind_rows(crosstab, total_row)
+
+# display the table professionally
+kable(crosstab_with_total, col.names = c("District Size", "Elected Women", "Percentage (%)"), 
+      caption = "Table 1. Elected women (in %) by district size")
+
+# create a flextable
+ft.results <- flextable(crosstab_with_total) %>%
+  set_caption(caption = "Table 1. Elected women (in %) by district size")
+
+# save the table as a MS. Word document
+save_as_docx(ft.results, path = "elected_women_by_district_table.docx") 
 ```
